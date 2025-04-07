@@ -34,9 +34,6 @@ function App() {
         onStart={() => setIsUserInteracting(true)}
         onEnd={() => setIsUserInteracting(false)}
         enableZoom={true}
-        zoomSpeed={0.5}
-        minDistance={2}
-        maxDistance={20}
       />
 
       <Landscape />
