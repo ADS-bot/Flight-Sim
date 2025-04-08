@@ -140,7 +140,7 @@ export function Overlay() {
               border: '1px solid rgba(255, 255, 255, 0.2)',
               minWidth: '70px',
               textAlign: 'center',
-            }}>Scroll</div>
+            }}>LClick</div>
             <span>Zoom In/Out</span>
           </li>
         </ul>
