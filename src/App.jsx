@@ -37,9 +37,13 @@ function App() {
         enablePan={false}
         enableRotate={true}
         mouseButtons={{
-          LEFT: 1,    // Rotate
-          MIDDLE: 2,  // Zoom
+          LEFT: 0,    // Rotate
+          MIDDLE: 1,  // Zoom
           RIGHT: 0    // Disabled
+        }}
+        touches={{
+          ONE: 1,     // Rotate
+          TWO: 2      // Zoom
         }}
       />
 
