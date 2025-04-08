@@ -25,7 +25,7 @@ window.addEventListener("keyup", (e) => {
 let maxVelocity = 0.04;
 let jawVelocity = 0;
 let pitchVelocity = 0;
-let planeSpeed = 0.006;
+let planeSpeed = 0.01;
 export let turbo = 0;
 
 export function updatePlaneAxis(x, y, z, planePosition, camera) {

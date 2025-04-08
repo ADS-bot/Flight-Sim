@@ -60,26 +60,87 @@ export function Overlay() {
           margin: 0,
           display: 'flex',
           flexDirection: 'column',
-          gap: '8px',
+          gap: '12px',
         }}>
-          <li style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#f3d29a' }}>W/S</span>
+          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              display: 'flex',
+              gap: '4px',
+            }}>
+              <div style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                minWidth: '24px',
+                textAlign: 'center',
+              }}>W</div>
+              <div style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                minWidth: '24px',
+                textAlign: 'center',
+              }}>S</div>
+            </div>
             <span>Pitch Up/Down</span>
           </li>
-          <li style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#f3d29a' }}>A/D</span>
+          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              display: 'flex',
+              gap: '4px',
+            }}>
+              <div style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                minWidth: '24px',
+                textAlign: 'center',
+              }}>A</div>
+              <div style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                minWidth: '24px',
+                textAlign: 'center',
+              }}>D</div>
+            </div>
             <span>Yaw Left/Right</span>
           </li>
-          <li style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#f3d29a' }}>Shift</span>
+          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              minWidth: '50px',
+              textAlign: 'center',
+            }}>Shift</div>
             <span>Turbo Boost</span>
           </li>
-          <li style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#f3d29a' }}>R</span>
+          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              minWidth: '24px',
+              textAlign: 'center',
+            }}>R</div>
             <span>Reset Position</span>
           </li>
-          <li style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#f3d29a' }}>Scroll</span>
+          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              minWidth: '70px',
+              textAlign: 'center',
+            }}>Scroll</div>
             <span>Zoom In/Out</span>
           </li>
         </ul>

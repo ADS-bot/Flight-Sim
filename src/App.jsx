@@ -34,6 +34,13 @@ function App() {
         onStart={() => setIsUserInteracting(true)}
         onEnd={() => setIsUserInteracting(false)}
         enableZoom={true}
+        enablePan={false}
+        enableRotate={true}
+        mouseButtons={{
+          LEFT: 1,    // Rotate
+          MIDDLE: 2,  // Zoom
+          RIGHT: 0    // Disabled
+        }}
       />
 
       <Landscape />
