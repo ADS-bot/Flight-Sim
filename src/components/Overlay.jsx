@@ -74,7 +74,7 @@ export function Overlay() {
                 border: '1px solid rgba(255, 255, 255, 0.2)',
                 minWidth: '24px',
                 textAlign: 'center',
-              }}>Q</div>
+              }}>▲</div>
               <div style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.1)',
                 padding: '4px 8px',
@@ -82,9 +82,33 @@ export function Overlay() {
                 border: '1px solid rgba(255, 255, 255, 0.2)',
                 minWidth: '24px',
                 textAlign: 'center',
-              }}>E</div>
+              }}>▼</div>
             </div>
-            <span>Turn Left/Right</span>
+            <span>Speed Up/Down</span>
+          </li>
+          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              display: 'flex',
+              gap: '4px',
+            }}>
+              <div style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                minWidth: '24px',
+                textAlign: 'center',
+              }}>◀</div>
+              <div style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                minWidth: '24px',
+                textAlign: 'center',
+              }}>▶</div>
+            </div>
+            <span>Sharp Turns</span>
           </li>
           <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
@@ -107,25 +131,6 @@ export function Overlay() {
                 minWidth: '24px',
                 textAlign: 'center',
               }}>S</div>
-              <span style={{ margin: '0 5px' }}>/</span>
-              <div style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                minWidth: '24px',
-                textAlign: 'center',
-                fontSize: '14px'
-              }}>▲</div>
-              <div style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                minWidth: '24px',
-                textAlign: 'center',
-                fontSize: '14px'
-              }}>▼</div>
             </div>
             <span>Pitch Up/Down</span>
           </li>
@@ -150,25 +155,6 @@ export function Overlay() {
                 minWidth: '24px',
                 textAlign: 'center',
               }}>D</div>
-              <span style={{ margin: '0 5px' }}>/</span>
-              <div style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                minWidth: '24px',
-                textAlign: 'center',
-                fontSize: '14px'
-              }}>◀</div>
-              <div style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                minWidth: '24px',
-                textAlign: 'center',
-                fontSize: '14px'
-              }}>▶</div>
             </div>
             <span>Yaw Left/Right</span>
           </li>
