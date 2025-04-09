@@ -13,7 +13,7 @@ function randomPoint(scale) {
   ).multiply(scale || new Vector3(1, 1, 1));
 }
 
-const TARGET_RAD = 0.125;
+const TARGET_RAD = 0.25;
 
 export function Targets() {
   const { incrementScore } = useScore();
@@ -21,8 +21,8 @@ export function Targets() {
     const arr = [];
     for (let i = 0; i < 25; i++) {
       arr.push({
-        center: randomPoint(new Vector3(4, 1, 4)).add(
-          new Vector3(0, 2 + Math.random() * 2, 0)
+        center: randomPoint(new Vector3(12, 3, 12)).add(
+          new Vector3(0, 6 + Math.random() * 6, 0)
         ),
         direction: randomPoint().normalize(),
         hit: false,

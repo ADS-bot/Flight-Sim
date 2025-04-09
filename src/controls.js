@@ -28,7 +28,6 @@ let jawVelocity = 0;
 let pitchVelocity = 0;
 let turnVelocity = 0;
 let planeSpeed = 0.006;
-let targetSpeed = 0.006; // Target speed for smooth acceleration/deceleration
 export let turbo = 0;
 
 export function updatePlaneAxis(x, y, z, planePosition, camera) {
@@ -74,20 +73,11 @@ export function updatePlaneAxis(x, y, z, planePosition, camera) {
 
   // Speed controls (Up/Down Arrows)
   if (controls["arrowup"]) {
-    targetSpeed = Math.min(targetSpeed + 0.001, 0.1);
-  } else if (controls["arrowdown"]) {
-    targetSpeed = Math.max(targetSpeed - 0.001, 0.002);
-  } else {
-    // Automatic deceleration when no acceleration input
-    targetSpeed = Math.max(targetSpeed - 0.006, 0.002);
+    planeSpeed = Math.min(planeSpeed + 0.001, 0.1);
   }
 
-  // Smooth speed transition
-  const acceleration = 0.0005;
-  if (planeSpeed < targetSpeed) {
-    planeSpeed = Math.min(planeSpeed + acceleration, targetSpeed);
-  } else if (planeSpeed > targetSpeed) {
-    planeSpeed = Math.max(planeSpeed - acceleration, targetSpeed);
+  if (controls["arrowdown"]) {
+    planeSpeed = Math.max(planeSpeed - 0.001, 0.002);
   }
 
   // Reset controls (R)
@@ -97,11 +87,10 @@ export function updatePlaneAxis(x, y, z, planePosition, camera) {
     turnVelocity = 0;
     turbo = 0;
     planeSpeed = 0.006;
-    targetSpeed = 0.006;
     x.set(1, 0, 0);
     y.set(0, 1, 0);
     z.set(0, 0, 1);
-    planePosition.set(0, 3, 7);
+    planePosition.set(0, 9, 21);
     if (resetScoreFunction) {
         resetScoreFunction();
     }

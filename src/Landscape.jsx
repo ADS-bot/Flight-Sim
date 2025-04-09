@@ -54,7 +54,7 @@ export function Landscape(props) {
   }, [materials]);
 
   return (
-    <group {...props} dispose={null}>
+    <group {...props} dispose={null} scale={3}>
       <mesh
         geometry={nodes.landscape_gltf.geometry}
         material={materials["Material.009"]}
