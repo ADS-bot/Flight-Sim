@@ -1,3 +1,4 @@
+# Flight Sim ✈️
 # Flight Sim✈️
 
 A 3D airplane flying simulation built with React Three Fiber (R3F) and Three.js. Fly through a tiled landscape, collect targets, and try to get the highest score!
