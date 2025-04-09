@@ -19,14 +19,15 @@ function App() {
     setResetScoreFunction(resetScore);
   }, [resetScore]);
 
-  const initialCameraPosition = [0, 3.5, 9];
+  // Camera position adjusted for the smaller grid
+  const initialCameraPosition = [0, 8, 15];
 
   return (
     <>
       <SphereEnv />
       <Environment background={false} files={"assets/textures/envmap.hdr"} />
 
-      <PerspectiveCamera makeDefault position={initialCameraPosition} fov={40} />
+      <PerspectiveCamera makeDefault position={initialCameraPosition} fov={50} />
 
       <OrbitControls 
         ref={orbitControlsRef} 
@@ -51,21 +52,25 @@ function App() {
       <Airplane orbitControlsRef={orbitControlsRef} isUserInteracting={isUserInteracting} />
       <Targets />
 
+      {/* Optimized lighting for better performance */}
       <directionalLight
         castShadow
         color={"#f3d29a"}
         intensity={2}
-        position={[10, 5, 4]}
+        position={[10, 15, 10]}
         shadow-bias={-0.0005}
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        shadow-mapSize-width={512}  // Reduced for better performance
+        shadow-mapSize-height={512}
         shadow-camera-near={0.01}
-        shadow-camera-far={20}
-        shadow-camera-top={6}
-        shadow-camera-bottom={-6}
-        shadow-camera-left={-6.2}
-        shadow-camera-right={6.4}
+        shadow-camera-far={40}
+        shadow-camera-top={15}
+        shadow-camera-bottom={-15}
+        shadow-camera-left={-15}
+        shadow-camera-right={15}
       />
+
+      {/* Ambient light with slightly increased intensity to compensate for fewer shadows */}
+      <ambientLight intensity={0.3} color="#f3d29a" />
 
       <EffectComposer>
         <MotionBlur />

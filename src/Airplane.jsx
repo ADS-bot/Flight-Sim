@@ -12,7 +12,7 @@ import { updatePlaneAxis } from './controls';
 const x = new Vector3(1, 0, 0);
 const y = new Vector3(0, 1, 0);
 const z = new Vector3(0, 0, 1);
-export const planePosition = new Vector3(0, 9, 21);
+export const planePosition = new Vector3(0, 3, 15);
 
 // Keep these separate, they are for the plane's orientation
 const rotMatrix = new Matrix4();

@@ -164,17 +164,6 @@ export function Overlay() {
               padding: '4px 8px',
               borderRadius: '4px',
               border: '1px solid rgba(255, 255, 255, 0.2)',
-              minWidth: '50px',
-              textAlign: 'center',
-            }}>Shift</div>
-            <span>Turbo Boost</span>
-          </li>
-          <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              padding: '4px 8px',
-              borderRadius: '4px',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
               minWidth: '24px',
               textAlign: 'center',
             }}>R</div>
