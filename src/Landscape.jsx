@@ -4,16 +4,17 @@ Command: npx gltfjsx@6.2.3 scene.glb
 */
 
 import React, { useEffect, useMemo, useRef } from "react";
-import { MeshReflectorMaterial, useGLTF } from "@react-three/drei";
-import { Box3, Color, MeshStandardMaterial, Vector3 } from "three";
+import { MeshReflectorMaterial, useGLTF, Instances, Instance } from "@react-three/drei";
+import { Box3, Color, MeshStandardMaterial, Vector3, Matrix4, Object3D } from "three";
 
 // Export grid configuration for other components
-export const GRID_SIZE = 5;
+export const GRID_SIZE = 3;
 export const SKIP_CORNERS = true;
+
+const dummy = new Object3D(); // Reusable object for matrix calculation
 
 export function Landscape(props) {
   const { nodes, materials } = useGLTF("assets/models/scene.glb");
-  const groupRef = useRef();
 
   // Create materials
   const [lightsMaterial, waterMaterial] = useMemo(() => {
@@ -30,20 +31,18 @@ export function Landscape(props) {
         opacity={0.6}
         color={"#23281b"}
         roughness={0}
-        blur={[10, 10]} // Blur ground reflections (width, height), 0 skips blur
-        mixBlur={1} // How much blur mixes with surface roughness (default = 1)
-        mixStrength={20} // Strength of the reflections
-        mixContrast={1.2} // Contrast of the reflections
-        resolution={128} // Reduced resolution for better performance
-        mirror={0} // Mirror environment, 0 = texture colors, 1 = pick up env colors
-        depthScale={0} // Scale the depth factor (0 = no depth, default = 0)
-        minDepthThreshold={0} // Lower edge for the depthTexture interpolation (default = 0)
-        maxDepthThreshold={0.1} // Upper edge for the depthTexture interpolation (default = 0)
-        depthToBlurRatioBias={0.0025} // Adds a bias factor to the depthTexture before calculating the blur amount [blurFactor = blurTexture * (depthTexture + bias)]. It accepts values between 0 and 1, default is 0.25. An amount > 0 of bias makes sure that the blurTexture is not too sharp because of the multiplication with the depthTexture
-        debug={
-          0
-        } /* Depending on the assigned value, one of the following channels is shown */
-        reflectorOffset={0.0} // Offsets the virtual camera that projects the reflection. Useful when the reflective surface is some distance from the object's origin (default = 0)
+        blur={[10, 10]}
+        mixBlur={1}
+        mixStrength={15} // Reduced mixStrength for performance
+        mixContrast={1.2}
+        resolution={128} // Kept reduced resolution
+        mirror={0}
+        depthScale={0}
+        minDepthThreshold={0}
+        maxDepthThreshold={0.1}
+        depthToBlurRatioBias={0.0025}
+        debug={0}
+        reflectorOffset={0.0}
       />,
     ];
   }, []);
@@ -51,131 +50,106 @@ export function Landscape(props) {
   // Calculate the bounding box for precise tiling
   const size = useMemo(() => {
     const bbox = new Box3();
-    
-    // Helper function to update bounding box with a mesh's geometry
     const updateBBoxWithMesh = (geometry) => {
       if (geometry) {
-        // Ensure geometry's bounding box is computed
         geometry.computeBoundingBox();
-        // Create temporary box for this geometry
-        const meshBBox = new Box3().copy(geometry.boundingBox);
-        // Expand the overall bounding box
-        bbox.union(meshBBox);
+        bbox.union(geometry.boundingBox);
       }
     };
-    
-    // Add all landscape geometries to the bounding box calculation
     if (nodes.landscape_gltf?.geometry) updateBBoxWithMesh(nodes.landscape_gltf.geometry);
     if (nodes.landscape_borders?.geometry) updateBBoxWithMesh(nodes.landscape_borders.geometry);
     if (nodes.trees_light?.geometry) updateBBoxWithMesh(nodes.trees_light.geometry);
     if (nodes.lights?.geometry) updateBBoxWithMesh(nodes.lights.geometry);
-    
-    // Calculate dimensions
     const dimensions = new Vector3();
     bbox.getSize(dimensions);
-    
     return dimensions;
   }, [nodes]);
 
+  // Store tile positions for instancing
+  const tileData = useMemo(() => {
+    if (!size || size.x === 0) return []; // Ensure size is calculated
+    const data = [];
+    const halfGrid = Math.floor(GRID_SIZE / 2);
+    for (let x = 0; x < GRID_SIZE; x++) {
+      for (let z = 0; z < GRID_SIZE; z++) {
+        if (SKIP_CORNERS && (x === 0 && z === 0 || x === (GRID_SIZE - 1) && z === (GRID_SIZE - 1) || 
+            x === 0 && z === (GRID_SIZE - 1) || x === (GRID_SIZE - 1) && z === 0)) {
+          continue;
+        }
+        const posX = (x - halfGrid) * size.x;
+        const posZ = (z - halfGrid) * size.z;
+        data.push({ x: posX, z: posZ });
+      }
+    }
+    return data;
+  }, [size]);
+
   // Export the calculated size for other components to use
-  React.useEffect(() => {
-    if (size) {
+  useEffect(() => {
+    if (size && size.x !== 0) {
       window.LANDSCAPE_SIZE = size;
     }
   }, [size]);
 
   useEffect(() => {
-    const landscapeMat = materials["Material.009"];
-    landscapeMat.envMapIntensity = 0.75;
-
-    const treesMat = materials["Material.008"];
-    treesMat.color = new Color("#2f2f13");
-    treesMat.envMapIntensity = 0.3;
-    treesMat.roughness = 1;
-    treesMat.metalness = 0;
+    // Adjust original material properties
+    materials["Material.009"].envMapIntensity = 0.75;
+    materials["Material.008"].color = new Color("#2f2f13");
+    materials["Material.008"].envMapIntensity = 0.3;
+    materials["Material.008"].roughness = 1;
+    materials["Material.008"].metalness = 0;
   }, [materials]);
 
-  // Create a 3x3 grid of landscapes (reduced from 5x5 for better performance)
-  const renderTiles = useMemo(() => {
-    if (!size) return null;
-    
-    const tiles = [];
-    const halfGrid = Math.floor(GRID_SIZE / 2);
-    
-    for (let x = 0; x < GRID_SIZE; x++) {
-      for (let z = 0; z < GRID_SIZE; z++) {
-        // Calculate position - center the grid and align perfectly without gaps
-        const posX = (x - halfGrid) * size.x;
-        const posZ = (z - halfGrid) * size.z;
-        
-        // Skip distant corners for even better performance 
-        // Only keep the center and immediate neighbors
-        if (SKIP_CORNERS && (x === 0 && z === 0 || x === 2 && z === 2 || 
-            x === 0 && z === 2 || x === 2 && z === 0)) {
-          continue; // Skip corners for better performance
-        }
-        
-        tiles.push(
-          <group key={`${x}-${z}`} position={[posX, 0, posZ]}>
-            {/* Include meshes from the original landscape */}
-            <mesh
-              geometry={nodes.landscape_gltf.geometry}
-              material={materials["Material.009"]}
-              castShadow
-              receiveShadow
-            />
-            <mesh
-              geometry={nodes.landscape_borders.geometry}
-              material={materials["Material.010"]}
-            />
-            <mesh
-              geometry={nodes.trees_light.geometry}
-              material={materials["Material.008"]}
-              castShadow
-              receiveShadow
-            />
-            <mesh
-              geometry={nodes.lights.geometry}
-              material={lightsMaterial}
-              castShadow
-            />
-            
-            {/* Water areas - positions are relative to the tile's position */}
-            <mesh
-              position={[-2.536, 1.272, 0.79]}
-              rotation={[-Math.PI * 0.5, 0, 0]}
-              scale={[1.285, 1.285, 1]}
-            >
-              <planeGeometry args={[1, 1]} />
-              {waterMaterial}
-            </mesh>
-            <mesh
-              position={[1.729, 0.943, 2.709]}
-              rotation={[-Math.PI * 0.5, 0, 0]}
-              scale={[3, 3, 1]}
-            >
-              <planeGeometry args={[1, 1]} />
-              {waterMaterial}
-            </mesh>
-            <mesh
-              position={[0.415, 1.588, -2.275]}
-              rotation={[-Math.PI * 0.5, 0, 0]}
-              scale={[3.105, 2.405, 1]}
-            >
-              <planeGeometry args={[1, 1]} />
-              {waterMaterial}
-            </mesh>
-          </group>
-        );
-      }
-    }
-    
-    return tiles;
-  }, [size, nodes, materials, lightsMaterial, waterMaterial]);
+  // Memoize water plane positions and scales
+  const waterPlanes = useMemo(() => [
+    { position: [-2.536, 1.272, 0.79], scale: [1.285, 1.285, 1] },
+    { position: [1.729, 0.943, 2.709], scale: [3, 3, 1] },
+    { position: [0.415, 1.588, -2.275], scale: [3.105, 2.405, 1] },
+  ], []);
 
   return (
-    <group ref={groupRef} {...props} dispose={null}>
-      {renderTiles}
+    <group {...props} dispose={null}>
+      {/* Instanced Meshes for Landscape Components */}
+      <Instances geometry={nodes.landscape_gltf.geometry} material={materials["Material.009"]} castShadow receiveShadow>
+        {tileData.map((data, i) => 
+          <Instance key={`landscape-${i}`} position={[data.x, 0, data.z]} />
+        )}
+      </Instances>
+      
+      <Instances geometry={nodes.landscape_borders.geometry} material={materials["Material.010"]}>
+        {tileData.map((data, i) => 
+          <Instance key={`border-${i}`} position={[data.x, 0, data.z]} />
+        )}
+      </Instances>
+      
+      <Instances geometry={nodes.trees_light.geometry} material={materials["Material.008"]} castShadow>
+        {tileData.map((data, i) => 
+          <Instance key={`trees-${i}`} position={[data.x, 0, data.z]} />
+        )}
+      </Instances>
+      
+      <Instances geometry={nodes.lights.geometry} material={lightsMaterial}>
+        {tileData.map((data, i) => 
+          <Instance key={`lights-${i}`} position={[data.x, 0, data.z]} />
+        )}
+      </Instances>
+
+      {/* Water planes - rendered per instance group */}
+      {tileData.map((data, i) => (
+        <group key={`watergroup-${i}`} position={[data.x, 0, data.z]}>
+          {waterPlanes.map((plane, planeIdx) => (
+            <mesh
+              key={`water-${i}-${planeIdx}`}
+              position={plane.position}
+              rotation={[-Math.PI * 0.5, 0, 0]}
+              scale={plane.scale}
+            >
+              <planeGeometry args={[1, 1]} />
+              {waterMaterial} {/* Note: This creates multiple reflectors, which can still be costly */}
+            </mesh>
+          ))}
+        </group>
+      ))}
     </group>
   );
 }
