@@ -5,7 +5,7 @@ Command: npx gltfjsx@6.2.3 scene.glb
 
 import React, { useEffect, useMemo, useRef } from "react";
 import { MeshReflectorMaterial, useGLTF, Instances, Instance } from "@react-three/drei";
-import { Box3, Color, MeshStandardMaterial, Vector3, Matrix4, Object3D } from "three";
+import { Box3, Color, MeshStandardMaterial, Vector3, Object3D } from "three";
 
 // Export grid configuration for other components
 export const GRID_SIZE = 3;
@@ -33,9 +33,9 @@ export function Landscape(props) {
         roughness={0}
         blur={[10, 10]}
         mixBlur={1}
-        mixStrength={15} // Reduced mixStrength for performance
+        mixStrength={15}
         mixContrast={1.2}
-        resolution={128} // Kept reduced resolution
+        resolution={128} // Keep low resolution for performance
         mirror={0}
         depthScale={0}
         minDepthThreshold={0}
@@ -62,6 +62,9 @@ export function Landscape(props) {
     if (nodes.lights?.geometry) updateBBoxWithMesh(nodes.lights.geometry);
     const dimensions = new Vector3();
     bbox.getSize(dimensions);
+    // Prevent division by zero or issues if model loads weirdly
+    if (dimensions.x === 0) dimensions.x = 10; 
+    if (dimensions.z === 0) dimensions.z = 10;
     return dimensions;
   }, [nodes]);
 
@@ -84,6 +87,14 @@ export function Landscape(props) {
     return data;
   }, [size]);
 
+  // Calculate total grid size for the single water plane
+  const totalGridSize = useMemo(() => {
+    if (!size || size.x === 0) return { width: 10, height: 10 };
+    // Since grid is centered, total size is GRID_SIZE * tileSize
+    // (Adjust if corners are skipped and exact bounding box is needed, but this is simpler)
+    return { width: GRID_SIZE * size.x, height: GRID_SIZE * size.z }; 
+  }, [size]);
+
   // Export the calculated size for other components to use
   useEffect(() => {
     if (size && size.x !== 0) {
@@ -100,56 +111,45 @@ export function Landscape(props) {
     materials["Material.008"].metalness = 0;
   }, [materials]);
 
-  // Memoize water plane positions and scales
-  const waterPlanes = useMemo(() => [
-    { position: [-2.536, 1.272, 0.79], scale: [1.285, 1.285, 1] },
-    { position: [1.729, 0.943, 2.709], scale: [3, 3, 1] },
-    { position: [0.415, 1.588, -2.275], scale: [3.105, 2.405, 1] },
-  ], []);
-
   return (
     <group {...props} dispose={null}>
       {/* Instanced Meshes for Landscape Components */}
       <Instances geometry={nodes.landscape_gltf.geometry} material={materials["Material.009"]} castShadow receiveShadow>
         {tileData.map((data, i) => 
-          <Instance key={`landscape-${i}`} position={[data.x, 0, data.z]} />
+          <Instance key={`landscape-${i}`} position={[data.x, 0, data.z]} name="landscape_terrain" />
         )}
       </Instances>
       
       <Instances geometry={nodes.landscape_borders.geometry} material={materials["Material.010"]}>
         {tileData.map((data, i) => 
-          <Instance key={`border-${i}`} position={[data.x, 0, data.z]} />
+          <Instance key={`border-${i}`} position={[data.x, 0, data.z]} name="landscape_border" />
         )}
       </Instances>
       
       <Instances geometry={nodes.trees_light.geometry} material={materials["Material.008"]} castShadow>
         {tileData.map((data, i) => 
-          <Instance key={`trees-${i}`} position={[data.x, 0, data.z]} />
+          <Instance key={`trees-${i}`} position={[data.x, 0, data.z]} name="landscape_trees" />
         )}
       </Instances>
       
       <Instances geometry={nodes.lights.geometry} material={lightsMaterial}>
         {tileData.map((data, i) => 
-          <Instance key={`lights-${i}`} position={[data.x, 0, data.z]} />
+          <Instance key={`lights-${i}`} position={[data.x, 0, data.z]} name="landscape_lights" />
         )}
       </Instances>
 
-      {/* Water planes - rendered per instance group */}
-      {tileData.map((data, i) => (
-        <group key={`watergroup-${i}`} position={[data.x, 0, data.z]}>
-          {waterPlanes.map((plane, planeIdx) => (
-            <mesh
-              key={`water-${i}-${planeIdx}`}
-              position={plane.position}
-              rotation={[-Math.PI * 0.5, 0, 0]}
-              scale={plane.scale}
-            >
-              <planeGeometry args={[1, 1]} />
-              {waterMaterial} {/* Note: This creates multiple reflectors, which can still be costly */}
-            </mesh>
-          ))}
-        </group>
-      ))}
+      {/* Single Water plane for the entire grid - MORE EFFICIENT */}
+      {size && size.x !== 0 && (
+        <mesh 
+          position={[0, 1.0, 0]} // Position at average water level 
+          rotation={[-Math.PI * 0.5, 0, 0]}
+          name="landscape_water"
+        >
+          <planeGeometry args={[totalGridSize.width, totalGridSize.height]} />
+          {waterMaterial}
+        </mesh>
+      )}
+
     </group>
   );
 }

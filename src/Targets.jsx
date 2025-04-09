@@ -115,9 +115,7 @@ export function Targets() {
 
       const hitDist = projected.distanceTo(target.center);
       if (hitDist < TARGET_RAD && Math.abs(dist) < 0.2) {
-        for (let i = 0; i < 10; i++) {
-          incrementScore();
-        }
+        incrementScore();
         scoreNeedsUpdate = true;
         return { ...target, hit: true };
       }

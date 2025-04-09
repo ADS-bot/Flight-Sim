@@ -30,6 +30,11 @@ let turnVelocity = 0;
 let planeSpeed = 0.006;
 export let turbo = 0;
 
+// Export function to get current plane speed
+export function getPlaneSpeed() {
+  return planeSpeed;
+}
+
 export function updatePlaneAxis(x, y, z, planePosition, camera) {
   jawVelocity *= 0.95;
   pitchVelocity *= 0.95;
@@ -54,11 +59,11 @@ export function updatePlaneAxis(x, y, z, planePosition, camera) {
   }
 
   // Pitch controls (W/S)
-  if (controls["w"]) {
+  if (controls["arrowdown"]) {
     pitchVelocity -= 0.0025;
   }
 
-  if (controls["s"]) {
+  if (controls["arrowup"]) {
     pitchVelocity += 0.0025;
   }
 
@@ -72,11 +77,11 @@ export function updatePlaneAxis(x, y, z, planePosition, camera) {
   }
 
   // Speed controls (Up/Down Arrows)
-  if (controls["arrowup"]) {
+  if (controls["w"]) {
     planeSpeed = Math.min(planeSpeed + 0.001, 0.1);
   }
 
-  if (controls["arrowdown"]) {
+  if (controls["s"]) {
     planeSpeed = Math.max(planeSpeed - 0.001, 0.002);
   }
 
@@ -90,7 +95,7 @@ export function updatePlaneAxis(x, y, z, planePosition, camera) {
     x.set(1, 0, 0);
     y.set(0, 1, 0);
     z.set(0, 0, 1);
-    planePosition.set(0, 3, 7);
+    planePosition.set(0, 3, 15);
     if (resetScoreFunction) {
         resetScoreFunction();
     }

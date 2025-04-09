@@ -6,7 +6,7 @@ export function ScoreProvider({ children }) {
   const [score, setScore] = useState(0);
 
   const incrementScore = () => {
-    setScore(prevScore => prevScore + 1);
+    setScore(prevScore => prevScore + 10);
   };
 
   const resetScore = () => {
