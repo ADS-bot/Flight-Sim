@@ -56,8 +56,8 @@ export function Overlay() {
         flexDirection: 'column',
         gap: '5px',
       }}>
-        <div>Speed: {displaySpeed}</div>
-        <div>Height: {displayHeight} m</div>
+        <div>Speed: {displaySpeed} knots</div>
+        <div>Altitude: {displayHeight} m</div>
       </div>
 
       {/* Controls Card (Bottom Left) */}

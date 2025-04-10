@@ -116,16 +116,16 @@ export function Airplane({ orbitControlsRef, isUserInteracting, ...props }) {
       }
     }
 
-    // Calculate the effective speed (base speed + turbo contribution)
-    // Use easeOutQuad for turbo like in controls.js
+    // Calculate the effective speed
     const easeOutQuad = (t) => t * (2 - t); 
-    const turboSpeedComponent = easeOutQuad(turbo) * 0.02; // Match turbo calculation in controls
+    const turboSpeedComponent = easeOutQuad(turbo) * 0.02;
     const baseSpeed = getPlaneSpeed(); // Get current base speed
-    const currentEffectiveSpeed = (baseSpeed + turboSpeedComponent) * 1000; // Use getPlaneSpeed + turbo, scale for readability
+    // Adjust scaling factor to approximate knots (e.g., map max raw speed ~0.12 to ~250 knots)
+    const currentEffectiveSpeed = (baseSpeed + turboSpeedComponent) * 2000; 
     const currentHeight = planePosition.y;
 
     // Log values every frame for debugging
-    console.log(`BaseSpeed: ${baseSpeed.toFixed(4)}, Turbo: ${turbo.toFixed(4)}, EffectiveSpeed: ${currentEffectiveSpeed.toFixed(0)}, Height: ${currentHeight.toFixed(1)}`);
+    // console.log(`BaseSpeed: ${baseSpeed.toFixed(4)}, Turbo: ${turbo.toFixed(4)}, EffectiveSpeed: ${currentEffectiveSpeed.toFixed(0)}, Height: ${currentHeight.toFixed(1)}`);
 
     // Update context unconditionally
     updateFlightData({ 
