@@ -6,33 +6,40 @@ import { Canvas } from "@react-three/fiber";
 import { Loader } from "@react-three/drei";
 import { ScoreProvider } from "./contexts/ScoreContext";
 import { FlightDataProvider } from "./contexts/FlightDataContext";
+import { GameOverProvider, useGameOver } from "./contexts/GameOverContext";
 import { Overlay } from "./components/Overlay";
-import { GameStateProvider } from "./contexts/GameStateContext";
-import { GameStateConnector } from "./components/GameStateConnector";
+import { GameOverOverlay } from "./components/GameOverOverlay";
+import { triggerFullReset } from "./controls";
 
-function AppWithProviders() {
+// Wrapper component to access the game over context
+function MainApp() {
+  const { isGameOver } = useGameOver();
+
   return (
-    <ScoreProvider>
-      <FlightDataProvider>
-        <GameStateProvider>
-          <GameStateConnector />
-          <Overlay />
-          
-          <Canvas shadows>
-            <Suspense fallback={null}>
-              <App />
-            </Suspense>
-          </Canvas>
-          
-          <Loader />
-        </GameStateProvider>
-      </FlightDataProvider>
-    </ScoreProvider>
+    <>
+      <Overlay />
+
+      {isGameOver && <GameOverOverlay onRestart={triggerFullReset} />}
+
+      <Canvas shadows >
+        <Suspense fallback={null}>
+          <App />
+        </Suspense>
+      </Canvas>
+
+      <Loader />
+    </>
   );
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <AppWithProviders />
+    <ScoreProvider>
+      <FlightDataProvider>
+        <GameOverProvider>
+          <MainApp />
+        </GameOverProvider>
+      </FlightDataProvider>
+    </ScoreProvider>
   </React.StrictMode>
 );

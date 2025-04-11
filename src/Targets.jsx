@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Quaternion, TorusGeometry, Vector3 } from "three";
 import { mergeBufferGeometries } from "three-stdlib";
 import { useFrame } from "@react-three/fiber";
-import { planePosition } from "./Airplane";
+import { planePosition } from "./controls";
 import { useScore } from "./contexts/ScoreContext";
 import { GRID_SIZE, SKIP_CORNERS } from "./Landscape";
 
@@ -15,8 +15,7 @@ function randomPoint(scale) {
 }
 
 const TARGET_RAD = 0.125;
-const TARGETS_PER_TILE = 10; // Keep this per tile, but now there's only 1 tile
-const TARGET_MIN_HEIGHT = 2.2; // Ensure targets spawn above this height
+const TARGETS_PER_TILE = 10; // Reduced from 25 to 5 targets per tile for better performance
 
 export function Targets() {
   const { incrementScore } = useScore();
@@ -52,38 +51,30 @@ export function Targets() {
   // Function to create targets distributed across the grid
   function createTargets(size) {
     const arr = [];
-    const halfGrid = Math.floor(GRID_SIZE / 2); // Now 0
+    const halfGrid = Math.floor(GRID_SIZE / 2);
     
-    // Loop through the single grid cell (0, 0)
+    // Loop through the same grid pattern as in Landscape.jsx
     for (let x = 0; x < GRID_SIZE; x++) {
       for (let z = 0; z < GRID_SIZE; z++) {
-        // SKIP_CORNERS logic is irrelevant for GRID_SIZE = 1
-        // if (SKIP_CORNERS && (x === 0 && z === 0 || x === 2 && z === 2 || 
-        //     x === 0 && z === 2 || x === 2 && z === 0)) {
-        //   continue;
-        // }
+        // Skip corners like in Landscape.jsx for consistency
+        if (SKIP_CORNERS && (x === 0 && z === 0 || x === 2 && z === 2 || 
+            x === 0 && z === 2 || x === 2 && z === 0)) {
+          continue;
+        }
         
-        // Calculate the tile offset (will be 0, 0 for the single tile)
+        // Calculate the tile offset using actual landscape size
         const tileOffsetX = (x - halfGrid) * size.x;
         const tileOffsetZ = (z - halfGrid) * size.z;
         
         // Create targets for this tile
         for (let i = 0; i < TARGETS_PER_TILE; i++) {
-          // Generate random position within tile bounds
-          const randomPos = randomPoint(new Vector3(4, 1, 4)); // Spread within tile
-          // Ensure minimum height
-          const targetY = TARGET_MIN_HEIGHT + Math.random() * 2; // Add some random variation above min height
-          
           arr.push({
-            center: new Vector3(
-              tileOffsetX + randomPos.x, 
-              targetY, 
-              tileOffsetZ + randomPos.z
-            ),
+            center: randomPoint(new Vector3(4, 1, 4))
+              .add(new Vector3(tileOffsetX, 2 + Math.random() * 2, tileOffsetZ)),
             direction: randomPoint().normalize(),
             hit: false,
-            id: `${x}-${z}-${i}`, // Will be like 0-0-0, 0-0-1, ...
-            gridPos: { x, z } // Will be {0, 0}
+            id: `${x}-${z}-${i}`, // Include grid position in ID
+            gridPos: { x, z } // Track which grid this target belongs to
           });
         }
       }

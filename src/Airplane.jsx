@@ -7,18 +7,10 @@ import React, { useRef, useEffect, useState, useMemo } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber';
 import { Matrix4, Quaternion, Raycaster, Vector3 } from 'three';
-import { updatePlaneAxis, getPlaneSpeed, turbo } from './controls';
+// Import shared vectors/position from controls.js
+import { updatePlaneAxis, getPlaneSpeed, turbo, x, y, z, planePosition } from './controls';
 import { useFlightData } from './contexts/FlightDataContext';
-import { useGameState } from './contexts/GameStateContext';
-
-const x = new Vector3(1, 0, 0);
-const y = new Vector3(0, 1, 0);
-const z = new Vector3(0, 0, 1);
-// Starting position constants
-const STARTING_X = 0;
-const STARTING_Y = 3;
-const STARTING_Z = 15;
-export const planePosition = new Vector3(STARTING_X, STARTING_Y, STARTING_Z); // Increased Z from 7 to 15 for a more distant starting position
+import { useGameOver } from './contexts/GameOverContext';
 
 // Keep these separate, they are for the plane's orientation
 const rotMatrix = new Matrix4();
@@ -32,23 +24,11 @@ const MODEL_PATH = 'assets/models/airplane.glb';
 const MODEL_SCALE = 0.0004; // Increased from 0.01 to zoom out 0.003-0.0003
 
 // Minimum height above terrain
-const MIN_TERRAIN_CLEARANCE = 0.05;
-const COLLISION_THRESHOLD = 0.05; // Threshold for actual collision
+const MIN_TERRAIN_CLEARANCE = 0.1;
 
 // For collision detection
 const raycaster = new Raycaster();
 const downDirection = new Vector3(0, -1, 0);
-
-// Function to reset plane vectors
-export function resetPlaneVectors() {
-  x.set(1, 0, 0);
-  y.set(0, 1, 0);
-  z.set(0, 0, 1);
-  planePosition.set(STARTING_X, STARTING_Y, STARTING_Z);
-  delayedQuaternion.set(0, 0, 0, 1);
-  rotMatrix.identity();
-  delayedRotMatrix.identity();
-}
 
 // Accept isUserInteracting prop
 export function Airplane({ orbitControlsRef, isUserInteracting, ...props }) {
@@ -57,44 +37,10 @@ export function Airplane({ orbitControlsRef, isUserInteracting, ...props }) {
   const [modelReady, setModelReady] = useState(false);
   const { scene } = useThree();
   const { updateFlightData } = useFlightData();
-  const { gameState, setCollision, resetGame } = useGameState();
- 
+  const { isGameOver, setGameOver } = useGameOver();
+  
   const { nodes, materials } = useGLTF(MODEL_PATH);
   
-  // Store references to potentially collidable objects
-  const collidableObjectsRef = useRef([]);
-  const landscapeObjectsRef = useRef([]); // Specific ref for landscape objects
-  
-  // Add keyboard event listener for "r" key to reset position
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key.toLowerCase() === 'r') {
-        console.log("'r' key pressed - resetting airplane position");
-        if (gameState.isGameOver) {
-          // If game over, use the resetGame function to properly restart
-          resetGame();
-        } else {
-          // If not game over, just reset position
-          resetPlaneVectors();
-        }
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    
-    // Cleanup event listener on component unmount
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [gameState.isGameOver, resetGame]);
-  
-  useEffect(() => {
-    if (gameState.wasReset) {
-      console.log("Game reset detected, resetting plane vectors");
-      resetPlaneVectors();
-    }
-  }, [gameState.wasReset]);
- 
   useEffect(() => {
     if (nodes && Object.keys(nodes).length > 0) {
       console.log("Model loaded successfully:", Object.keys(nodes));
@@ -117,98 +63,72 @@ export function Airplane({ orbitControlsRef, isUserInteracting, ...props }) {
   }, [orbitControlsRef]); // Run only once when controls are available
 
   useFrame(({ camera }, delta) => {
-    if (!groupRef.current || !orbitControlsRef?.current) return;
+    // Stop updates if game is over
+    if (isGameOver || !groupRef.current || !orbitControlsRef?.current) return;
     
-    // Skip updates if game is over
-    if (gameState.isGameOver) return;
-   
     const oldPosition = planePosition.clone();
-   
+    
     updatePlaneAxis(x, y, z, planePosition, camera);
-   
+    
     // Collision detection with terrain
     // We'll raycast downward from the airplane
     raycaster.set(planePosition, downDirection);
-   
+    
     // Get all objects in the scene that could collide
     // We're interested in landscape meshes
     const intersects = raycaster.intersectObjects(scene.children, true);
-   
+    
     // Find the closest valid intersection
     let terrainHeight = -Infinity;
     for (let i = 0; i < intersects.length; i++) {
       const intersect = intersects[i];
-     
+      
       // Skip if it's the airplane itself or non-landscape objects
       // We check if the object name includes these common landscape-related terms
       const objName = intersect.object.name.toLowerCase();
       if (objName.includes('landscape') || objName.includes('terrain') || objName.includes('ground')) {
         terrainHeight = Math.max(terrainHeight, intersect.point.y);
-        
-        // Check if we're too close to the ground (actual collision)
-        const distanceToGround = planePosition.y - intersect.point.y;
-        if (distanceToGround <= COLLISION_THRESHOLD) {
-          console.log("COLLISION with landscape detected!");
-          setCollision(planePosition.clone());
-          return; // Stop further processing
-        }
       }
     }
-   
+    
     // If we found terrain below us
     if (terrainHeight !== -Infinity) {
       // Ensure minimum clearance
       const minHeight = terrainHeight + MIN_TERRAIN_CLEARANCE;
-     
+      
       // If we're too low, restore the old position and adjust height
       if (planePosition.y < minHeight) {
-        // Option 1: Just bounce up to min height (simple but abrupt)
-        planePosition.y = minHeight;
-       
-        // Option 2: Restore most of old position & momentum but adjust height
-        // This provides smoother response, as if the plane is gliding along the terrain
+        // *** Trigger Game Over ***
+        setGameOver(true);
+        planePosition.y = minHeight; // Keep plane visually at the crash height
+        // Optionally, you could stop movement immediately here:
+        // return; // Exit useFrame early
+        
+        // Original logic to bounce/slide (now happens after setting game over)
+        /*
         if (oldPosition.y >= minHeight) {
-          // If we were above terrain before, slide along the surface
           planePosition.copy(oldPosition);
-          // Move forward at a fraction of the original speed to simulate slowing down
           const forwardMove = z.clone().multiplyScalar(-0.01);
           planePosition.add(forwardMove);
-          // Set to minimum height
           planePosition.y = minHeight;
         }
+        */
       }
     }
 
-    // Additional forward collision check (prevent going through walls)
-    const forwardDirection = z.clone().multiplyScalar(-1);
-    raycaster.set(planePosition, forwardDirection);
-    const forwardIntersects = raycaster.intersectObjects(scene.children, true);
-    
-    for (let i = 0; i < forwardIntersects.length; i++) {
-      const intersect = forwardIntersects[i];
-      const objName = intersect.object.name.toLowerCase();
-      
-      if (objName.includes('landscape') || objName.includes('terrain') || 
-          objName.includes('ground') || objName.includes('border')) {
-        // If we're about to hit something in front
-        if (intersect.distance < 0.3) { // Forward collision threshold
-          console.log("FORWARD COLLISION with landscape detected!");
-          setCollision(planePosition.clone().add(forwardDirection.multiplyScalar(intersect.distance)));
-          return; // Stop further processing
-        }
-      }
-    }
-
-    // Calculate the effective speed (base speed + turbo contribution)
-    // Use easeOutQuad for turbo like in controls.js
-    const easeOutQuad = (t) => t * (2 - t);
-    const turboSpeedComponent = easeOutQuad(turbo) * 0.02; // Match turbo calculation in controls
+    // Calculate the effective speed
+    const easeOutQuad = (t) => t * (2 - t); 
+    const turboSpeedComponent = easeOutQuad(turbo) * 0.02;
     const baseSpeed = getPlaneSpeed(); // Get current base speed
-    const currentEffectiveSpeed = (baseSpeed + turboSpeedComponent) * 2000; // Use getPlaneSpeed + turbo, scale for readability
+    // Adjust scaling factor to approximate knots (e.g., map max raw speed ~0.12 to ~250 knots)
+    const currentEffectiveSpeed = (baseSpeed + turboSpeedComponent) * 2000; 
     const currentHeight = planePosition.y;
 
+    // Log values every frame for debugging
+    // console.log(`BaseSpeed: ${baseSpeed.toFixed(4)}, Turbo: ${turbo.toFixed(4)}, EffectiveSpeed: ${currentEffectiveSpeed.toFixed(0)}, Height: ${currentHeight.toFixed(1)}`);
+
     // Update context unconditionally
-    updateFlightData({
+    updateFlightData({ 
       speed: currentEffectiveSpeed,
       height: currentHeight
     });
@@ -253,13 +173,15 @@ export function Airplane({ orbitControlsRef, isUserInteracting, ...props }) {
 
       // Sync OrbitControls target and update it
       orbitControlsRef.current.target.copy(cameraTarget);
+      // orbitControlsRef.current.update(); // update() is likely called by the R3F loop automatically
     } else {
       // While user is interacting, update our internal state to match the controls
       cameraPosition.copy(orbitControlsRef.current.object.position);
       cameraTarget.copy(orbitControlsRef.current.target);
-     
+      
       // Keep the target focused on the plane, allowing OrbitControls to handle position/zoom
       orbitControlsRef.current.target.copy(idealLookAt);
+      // orbitControlsRef.current.update(); // update() is likely called by the R3F loop automatically
     }
 
     // Rotate helix

@@ -1,5 +1,11 @@
 import { useScore } from './contexts/ScoreContext';
-import { Matrix4 } from 'three';
+import { Matrix4, Vector3 } from 'three';
+
+// Define shared vectors and position here
+export const x = new Vector3(1, 0, 0);
+export const y = new Vector3(0, 1, 0);
+export const z = new Vector3(0, 0, 1);
+export const planePosition = new Vector3(0, 3, 15);
 
 function easeOutQuad(x) {
   return 1 - (1 - x) * (1 - x);
@@ -7,58 +13,34 @@ function easeOutQuad(x) {
 
 export let controls = {};
 export let resetScoreFunction = null;
-export let gameStateRef = { current: { isGameOver: false } }; // Reference to game state
-
-// Original values for resetting
-const INITIAL_PLANE_SPEED = 0.006;
-
-// Store velocities globally so they can be reset
-let maxVelocity = 0.04;
-let jawVelocity = 0;
-let pitchVelocity = 0;
-let turnVelocity = 0;
-let planeSpeed = INITIAL_PLANE_SPEED;
-export let turbo = 0;
 
 export function setResetScoreFunction(fn) {
   resetScoreFunction = fn;
 }
 
-// Set game state reference
-export function setGameStateRef(ref) {
-  gameStateRef = ref;
-}
-
-// Reset all control states
-export function resetControlStates() {
+// Function to perform a full game reset
+export function triggerFullReset() {
+  console.log("Triggering full reset from controls...");
   jawVelocity = 0;
   pitchVelocity = 0;
   turnVelocity = 0;
   turbo = 0;
-  planeSpeed = INITIAL_PLANE_SPEED;
+  planeSpeed = 0.006;
+  x.set(1, 0, 0);
+  y.set(0, 1, 0);
+  z.set(0, 0, 1);
+  planePosition.set(0, 3, 15);
   
-  // Also clear any key states to prevent stuck keys
-  Object.keys(controls).forEach(key => {
-    controls[key] = false;
-  });
-  
-  console.log("Control states reset");
+  if (resetScoreFunction) {
+    resetScoreFunction();
+  }
 }
 
 window.addEventListener("keydown", (e) => {
-  // Ignore controls if game is over - except for R to reset
-  if (gameStateRef.current?.isGameOver && e.key.toLowerCase() !== 'r') {
-    return;
-  }
-  
   controls[e.key.toLowerCase()] = true;
-  
-  // Handle R key reset
+  // Use the new reset function for 'r' key
   if (e.key.toLowerCase() === 'r') {
-    if (resetScoreFunction) {
-      resetScoreFunction();
-    }
-    resetControlStates();
+    triggerFullReset();
   }
 });
 
@@ -66,17 +48,19 @@ window.addEventListener("keyup", (e) => {
   controls[e.key.toLowerCase()] = false;
 });
 
+let maxVelocity = 0.04;
+let jawVelocity = 0;
+let pitchVelocity = 0;
+let turnVelocity = 0;
+let planeSpeed = 0.006;
+export let turbo = 0;
+
 // Export function to get current plane speed
 export function getPlaneSpeed() {
   return planeSpeed;
 }
 
 export function updatePlaneAxis(x, y, z, planePosition, camera) {
-  // Don't update if game is over
-  if (gameStateRef.current?.isGameOver) {
-    return;
-  }
-  
   jawVelocity *= 0.95;
   pitchVelocity *= 0.95;
   turnVelocity *= 0.95;
@@ -124,15 +108,6 @@ export function updatePlaneAxis(x, y, z, planePosition, camera) {
 
   if (controls["s"]) {
     planeSpeed = Math.max(planeSpeed - 0.001, 0.002);
-  }
-
-  // Reset controls (R)
-  if (controls["r"]) {
-    resetControlStates();
-    x.set(1, 0, 0);
-    y.set(0, 1, 0);
-    z.set(0, 0, 1);
-    planePosition.set(0, 3, 15);
   }
 
   // Apply direct turning rotation

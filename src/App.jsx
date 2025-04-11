@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { PerspectiveCamera, Environment, OrbitControls } from "@react-three/drei";
 import { EffectComposer, HueSaturation } from "@react-three/postprocessing";
 import { BlendFunction } from "postprocessing";
@@ -6,21 +6,27 @@ import { Landscape } from "./Landscape";
 import { SphereEnv } from "./SphereEnv";
 import { Airplane } from "./Airplane";
 import { Targets } from "./Targets";
-// import { MotionBlur } from "./MotionBlur"; // MotionBlur remains disabled
+import { MotionBlur } from "./MotionBlur";
 import { useScore } from "./contexts/ScoreContext";
+import { useGameOver } from "./contexts/GameOverContext";
 import { setResetScoreFunction } from "./controls";
-// import { CollisionEffect } from "./components/CollisionEffect"; // Removed
 
 function App() {
   const orbitControlsRef = useRef();
   const [isUserInteracting, setIsUserInteracting] = useState(false);
   const { resetScore } = useScore();
+  const { restartGame } = useGameOver();
+
+  const handleBackendRestart = useCallback(() => {
+    console.log("Handling backend restart (score/game state)...");
+    resetScore();
+    restartGame();
+  }, [resetScore, restartGame]);
 
   useEffect(() => {
-    setResetScoreFunction(resetScore);
-  }, [resetScore]);
+    setResetScoreFunction(handleBackendRestart);
+  }, [handleBackendRestart]);
 
-  // Camera position adjusted for the smaller grid
   const initialCameraPosition = [0, 8, 15];
 
   return (
@@ -39,29 +45,27 @@ function App() {
         enablePan={false}
         enableRotate={true}
         mouseButtons={{
-          LEFT: 0,    // Rotate
-          MIDDLE: 1,  // Zoom
-          RIGHT: 0    // Disabled
+          LEFT: 0,
+          MIDDLE: 1,
+          RIGHT: -1
         }}
         touches={{
-          ONE: 1,     // Rotate
-          TWO: 2      // Zoom
+          ONE: 1,
+          TWO: 2
         }}
       />
 
       <Landscape />
       <Airplane orbitControlsRef={orbitControlsRef} isUserInteracting={isUserInteracting} />
       <Targets />
-      {/* <CollisionEffect /> Removed */}
 
-      {/* Optimized lighting for better performance - Shadows restored */}
       <directionalLight
-        castShadow // Ensure shadows are enabled
+        castShadow
         color={"#f3d29a"}
         intensity={2}
         position={[10, 15, 10]}
         shadow-bias={-0.0005}
-        shadow-mapSize-width={512}  // Keep reduced map size
+        shadow-mapSize-width={512}
         shadow-mapSize-height={512}
         shadow-camera-near={0.01}
         shadow-camera-far={40}
@@ -71,11 +75,10 @@ function App() {
         shadow-camera-right={15}
       />
 
-      {/* Ambient light with slightly increased intensity to compensate for fewer shadows */}
       <ambientLight intensity={0.3} color="#f3d29a" />
 
       <EffectComposer>
-        {/* <MotionBlur /> */}
+        <MotionBlur />
         <HueSaturation
           blendFunction={BlendFunction.NORMAL}
           hue={-0.15}
