@@ -9,6 +9,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Matrix4, Quaternion, Raycaster, Vector3 } from 'three';
 import { updatePlaneAxis, getPlaneSpeed, turbo } from './controls';
 import { useFlightData } from './contexts/FlightDataContext';
+import { useGameState } from './contexts/GameStateContext';
 
 const x = new Vector3(1, 0, 0);
 const y = new Vector3(0, 1, 0);
@@ -27,21 +28,90 @@ const MODEL_PATH = 'assets/models/airplane.glb';
 const MODEL_SCALE = 0.0004; // Increased from 0.01 to zoom out 0.003-0.0003
 
 // Minimum height above terrain
-const MIN_TERRAIN_CLEARANCE = 0.1;
+const MIN_TERRAIN_CLEARANCE = 0.3; // Increased from 0.1 for safer clearance
+const SIDE_COLLISION_THRESHOLD = 0.35; // Increased slightly for better detection
+const LANDSCAPE_COLLISION_THRESHOLD = 0.7; // Specific threshold for landscape elements
 
 // For collision detection
 const raycaster = new Raycaster();
 const downDirection = new Vector3(0, -1, 0);
+// Additional directions for actual collision (not bounce)
+const forwardDirection = new Vector3(0, 0, -1);
+const leftDirection = new Vector3(-1, 0, 0);
+const rightDirection = new Vector3(1, 0, 0);
+
+// Collision detection points relative to the plane center
+// These offset points represent the plane's extremities
+const COLLISION_OFFSETS = [
+  new Vector3(0, 0, 0),       // Center point
+  new Vector3(0, 0, -0.5),    // Nose
+  new Vector3(0.4, 0, -0.2),  // Right wing
+  new Vector3(-0.4, 0, -0.2), // Left wing
+  new Vector3(0, 0.2, -0.3),  // Top/cockpit
+  new Vector3(0, -0.1, -0.2)  // Bottom
+];
+
+// Throttle terrain check frequency
+const TERRAIN_CHECK_INTERVAL = 1; // Check every frame now for more reliable collision detection
+
+// Function to reset plane vectors
+export function resetPlaneVectors() {
+  x.set(1, 0, 0);
+  y.set(0, 1, 0);
+  z.set(0, 0, 1);
+  planePosition.set(0, 3, 15);
+  delayedQuaternion.set(0, 0, 0, 1);
+  rotMatrix.identity();
+  delayedRotMatrix.identity();
+}
 
 // Accept isUserInteracting prop
 export function Airplane({ orbitControlsRef, isUserInteracting, ...props }) {
   const groupRef = useRef();
   const helixMeshRef = useRef();
+  const frameCounterRef = useRef(0); // Counter for throttling checks
   const [modelReady, setModelReady] = useState(false);
   const { scene } = useThree();
   const { updateFlightData } = useFlightData();
+  const { gameState, setCollision } = useGameState();
+  const prevGameStateRef = useRef(gameState);
   
   const { nodes, materials } = useGLTF(MODEL_PATH);
+  
+  // Store references to potentially collidable objects
+  const collidableObjectsRef = useRef([]);
+  const landscapeObjectsRef = useRef([]); // Specific ref for landscape objects
+  
+  useEffect(() => {
+    const objects = [];
+    const landscapeObjects = [];
+    
+    scene.traverse((object) => {
+      // Identify collidable objects by name (adjust names if needed)
+      if (object.isMesh) {
+        const objName = object.name.toLowerCase();
+        
+        if (objName.includes('landscape') || objName.includes('terrain') || 
+            objName.includes('ground') || objName.includes('trees') || 
+            objName.includes('border') || objName.includes('building')) {
+          objects.push(object);
+          
+          // Specifically track landscape objects for hard boundaries
+          if (objName.includes('landscape') || objName.includes('terrain') || 
+              objName.includes('ground')) {
+            landscapeObjects.push(object);
+            // Set a user data flag to identify landscape objects
+            object.userData.isLandscape = true;
+          }
+        }
+      }
+    });
+    
+    collidableObjectsRef.current = objects;
+    landscapeObjectsRef.current = landscapeObjects;
+    console.log("Collidable objects identified:", objects.length);
+    console.log("Landscape objects identified:", landscapeObjects.length);
+  }, [scene]); // Re-run if the scene changes significantly (rare)
   
   useEffect(() => {
     if (nodes && Object.keys(nodes).length > 0) {
@@ -51,6 +121,16 @@ export function Airplane({ orbitControlsRef, isUserInteracting, ...props }) {
       console.error("Failed to load model or model has no nodes");
     }
   }, [nodes]);
+
+  // Reset plane when game state changes from game over to not game over
+  useEffect(() => {
+    if (prevGameStateRef.current.isGameOver && !gameState.isGameOver) {
+      console.log("Game reset detected, resetting plane vectors");
+      resetPlaneVectors();
+      frameCounterRef.current = 0; // Reset frame counter on game reset
+    }
+    prevGameStateRef.current = gameState;
+  }, [gameState]);
 
   // Memoize vectors to avoid recreating them every frame
   const cameraPosition = useMemo(() => new Vector3(), []);
@@ -67,73 +147,226 @@ export function Airplane({ orbitControlsRef, isUserInteracting, ...props }) {
   useFrame(({ camera }, delta) => {
     if (!groupRef.current || !orbitControlsRef?.current) return;
     
-    const oldPosition = planePosition.clone();
+    // Skip updates if game is over
+    if (gameState.isGameOver) return;
     
+    frameCounterRef.current++;
+    
+    // Store position *before* movement this frame
+    const positionBeforeMove = planePosition.clone();
+    
+    // Calculate intended movement
     updatePlaneAxis(x, y, z, planePosition, camera);
     
-    // Collision detection with terrain
-    // We'll raycast downward from the airplane
-    raycaster.set(planePosition, downDirection);
+    // Calculate the movement vector for this frame
+    const movementVector = planePosition.clone().sub(positionBeforeMove);
     
-    // Get all objects in the scene that could collide
-    // We're interested in landscape meshes
-    const intersects = raycaster.intersectObjects(scene.children, true);
-    
-    // Find the closest valid intersection
-    let terrainHeight = -Infinity;
-    for (let i = 0; i < intersects.length; i++) {
-      const intersect = intersects[i];
-      
-      // Skip if it's the airplane itself or non-landscape objects
-      // We check if the object name includes these common landscape-related terms
-      const objName = intersect.object.name.toLowerCase();
-      if (objName.includes('landscape') || objName.includes('terrain') || objName.includes('ground')) {
-        terrainHeight = Math.max(terrainHeight, intersect.point.y);
-      }
-    }
-    
-    // If we found terrain below us
-    if (terrainHeight !== -Infinity) {
-      // Ensure minimum clearance
-      const minHeight = terrainHeight + MIN_TERRAIN_CLEARANCE;
-      
-      // If we're too low, restore the old position and adjust height
-      if (planePosition.y < minHeight) {
-        // Option 1: Just bounce up to min height (simple but abrupt)
-        planePosition.y = minHeight;
+    // --- LANDSCAPE-SPECIFIC COLLISION DETECTION (high priority) ---
+    // This check runs first and uses a larger threshold for the landscape specifically
+    if (landscapeObjectsRef.current.length > 0) {
+      // Cast rays along movement vector to prevent tunneling through landscape
+      for (const offset of COLLISION_OFFSETS) {
+        // Transform the offset to world space
+        const worldOffset = new Vector3()
+          .addScaledVector(x, offset.x)
+          .addScaledVector(y, offset.y)
+          .addScaledVector(z, offset.z);
         
-        // Option 2: Restore most of old position & momentum but adjust height
-        // This provides smoother response, as if the plane is gliding along the terrain
-        if (oldPosition.y >= minHeight) {
-          // If we were above terrain before, slide along the surface
-          planePosition.copy(oldPosition);
-          // Move forward at a fraction of the original speed to simulate slowing down
-          const forwardMove = z.clone().multiplyScalar(-0.01);
-          planePosition.add(forwardMove);
-          // Set to minimum height
-          planePosition.y = minHeight;
+        // Starting point = position before move + offset
+        const startPoint = positionBeforeMove.clone().add(worldOffset);
+        // Direction = normalized movement vector
+        const moveDir = movementVector.clone().normalize();
+        // Distance = movement distance plus safety margin
+        const checkDist = movementVector.length() + LANDSCAPE_COLLISION_THRESHOLD;
+        
+        raycaster.set(startPoint, moveDir);
+        const landscapeIntersects = raycaster.intersectObjects(landscapeObjectsRef.current, false);
+        
+        for (const intersect of landscapeIntersects) {
+          if (intersect.distance < checkDist) {
+            console.log(`LANDSCAPE BOUNDARY HIT with ${intersect.object.name}!`);
+            
+            // Hard stop at landscape boundary - move to just before collision point
+            if (intersect.distance > LANDSCAPE_COLLISION_THRESHOLD) {
+              // We can move a bit, but not all the way
+              const safeDistance = Math.max(0, intersect.distance - LANDSCAPE_COLLISION_THRESHOLD);
+              planePosition.copy(positionBeforeMove).addScaledVector(moveDir, safeDistance);
+            } else {
+              // We're too close - don't move at all in this direction
+              planePosition.copy(positionBeforeMove);
+            }
+            
+            // Check if this is an actual crash (very close)
+            if (intersect.distance < SIDE_COLLISION_THRESHOLD) {
+              const collisionPoint = startPoint.clone().addScaledVector(moveDir, intersect.distance);
+              setCollision(collisionPoint);
+              return; // Stop processing after collision
+            }
+            
+            // Not a crash but we can't move further - skip remaining collision checks
+            return;
+          }
         }
       }
     }
+    
+    // --- Regular Collision Detection & Response (runs every frame) ---
+    // Get world directions based on current plane orientation
+    const worldForward = z.clone().multiplyScalar(-1);
+    const worldLeft = x.clone();
+    const worldRight = x.clone().multiplyScalar(-1);
+    const worldUp = y.clone();
+    const worldDown = y.clone().multiplyScalar(-1);
+    
+    // Directions for scene boundary collision checks
+    const collisionDirections = [
+      { vector: worldForward, name: "forward" },
+      { vector: worldLeft, name: "left" },
+      { vector: worldRight, name: "right" },
+      { vector: worldUp, name: "up" },
+      { vector: worldDown, name: "down" }
+    ];
+    
+    // Enhanced collision detection using multiple points
+    if (collidableObjectsRef.current.length > 0) {
+      // For each collision check point on the airplane
+      for (const offset of COLLISION_OFFSETS) {
+        // Transform the offset to world space using current plane orientation
+        const worldOffset = new Vector3()
+          .addScaledVector(x, offset.x)
+          .addScaledVector(y, offset.y)
+          .addScaledVector(z, offset.z);
+        
+        // Check point = plane position + transformed offset
+        const checkPoint = positionBeforeMove.clone().add(worldOffset);
+        
+        // Check in all directions from this point
+        for (const direction of collisionDirections) {
+          raycaster.set(checkPoint, direction.vector);
+          const intersects = raycaster.intersectObjects(collidableObjectsRef.current, false);
+          
+          for (const intersect of intersects) {
+            // Collision if within threshold distance
+            if (intersect.distance < SIDE_COLLISION_THRESHOLD) {
+              console.log(`CRASH detected at ${offset.x},${offset.y},${offset.z} point in ${direction.name} direction with ${intersect.object.name}!`);
+              
+              // Get collision world point
+              const collisionPoint = checkPoint.clone().addScaledVector(direction.vector, intersect.distance);
+              setCollision(collisionPoint);
+              return; // Stop processing after collision
+            }
+          }
+        }
+      }
+      
+      // Additional forward movement path check
+      // This prevents "tunneling" through thin objects
+      for (const offset of COLLISION_OFFSETS) {
+        // Transform the offset to world space
+        const worldOffset = new Vector3()
+          .addScaledVector(x, offset.x)
+          .addScaledVector(y, offset.y)
+          .addScaledVector(z, offset.z);
+        
+        // Starting point = position before move + offset
+        const startPoint = positionBeforeMove.clone().add(worldOffset);
+        // End point = where this point would end up after movement
+        const endPoint = startPoint.clone().add(movementVector);
+        // Direction = normalized vector from start to end
+        const moveDir = endPoint.clone().sub(startPoint).normalize();
+        // Distance = length of movement vector
+        const moveDist = movementVector.length();
+        
+        // Cast ray along the exact movement path
+        raycaster.set(startPoint, moveDir);
+        const moveIntersects = raycaster.intersectObjects(collidableObjectsRef.current, false);
+        
+        for (const intersect of moveIntersects) {
+          if (intersect.distance < moveDist) {
+            console.log(`CRASH detected during movement with ${intersect.object.name}!`);
+            
+            // Get collision world point
+            const collisionPoint = startPoint.clone().addScaledVector(moveDir, intersect.distance);
+            setCollision(collisionPoint);
+            return; // Stop processing after collision
+          }
+        }
+      }
+    }
+    
+    // --- Terrain Height Check & Collision (runs every frame now) ---
+    // Raycast down from multiple plane points for better terrain detection
+    let terrainHeight = -Infinity;
+    let collidedObject = null;
+    
+    // Check terrain height from multiple points on the plane
+    for (const offset of COLLISION_OFFSETS) {
+      // Transform the offset to world space
+      const worldOffset = new Vector3()
+        .addScaledVector(x, offset.x)
+        .addScaledVector(y, offset.y)
+        .addScaledVector(z, offset.z);
+      
+      // Check point = plane position + offset
+      const checkPoint = planePosition.clone().add(worldOffset);
+      
+      // Raycast down from this point
+      raycaster.set(checkPoint, downDirection);
+      const terrainIntersects = raycaster.intersectObjects(collidableObjectsRef.current, false);
+      
+      for (let i = 0; i < terrainIntersects.length; i++) {
+        const intersect = terrainIntersects[i];
+        const objName = intersect.object.name.toLowerCase();
+        
+        // Consider all scene objects for collision detection
+        if (objName.includes('landscape') || objName.includes('terrain') || 
+            objName.includes('ground') || objName.includes('tree') || 
+            objName.includes('building') || objName.includes('border')) {
+          
+          // Calculate the exact distance to the terrain
+          const distanceToTerrain = checkPoint.y - intersect.point.y;
+          terrainHeight = Math.max(terrainHeight, intersect.point.y);
+          
+          // Trigger collision if distance is less than or equal to MIN_TERRAIN_CLEARANCE
+          // Using Number.EPSILON for floating point comparison precision
+          if (distanceToTerrain <= MIN_TERRAIN_CLEARANCE + Number.EPSILON) { 
+            collidedObject = intersect.object;
+            // Here we use the specific check point for more accurate collision location
+            setCollision(checkPoint.clone());
+            return; // Stop processing after collision
+          }
+        }
+      }
+    }
+    
+    // If collision detected
+    if (collidedObject) {
+      console.log(`CRASH detected with ${collidedObject.name} from terrain/ground collision!`);
+      setCollision(planePosition.clone());
+      return; // Stop processing after collision
+    }
+    
+    // If we found terrain below us but no collision yet, adjust height to maintain minimum clearance
+    if (terrainHeight !== -Infinity) {
+      const minHeight = terrainHeight + MIN_TERRAIN_CLEARANCE;
+      if (planePosition.y < minHeight) {
+        planePosition.y = minHeight;
+      }
+    }
 
-    // Calculate the effective speed
+    // --- Update Flight Data & Camera (runs every frame) ---
     const easeOutQuad = (t) => t * (2 - t); 
     const turboSpeedComponent = easeOutQuad(turbo) * 0.02;
-    const baseSpeed = getPlaneSpeed(); // Get current base speed
-    // Adjust scaling factor to approximate knots (e.g., map max raw speed ~0.12 to ~250 knots)
+    const baseSpeed = getPlaneSpeed();
     const currentEffectiveSpeed = (baseSpeed + turboSpeedComponent) * 2000; 
     const currentHeight = planePosition.y;
 
-    // Log values every frame for debugging
-    // console.log(`BaseSpeed: ${baseSpeed.toFixed(4)}, Turbo: ${turbo.toFixed(4)}, EffectiveSpeed: ${currentEffectiveSpeed.toFixed(0)}, Height: ${currentHeight.toFixed(1)}`);
-
-    // Update context unconditionally
     updateFlightData({ 
       speed: currentEffectiveSpeed,
       height: currentHeight
     });
 
-    // Update plane's matrix
+    // Update plane's matrix based on potentially adjusted position
     rotMatrix.makeBasis(x, y, z);
     const matrix = new Matrix4()
       .multiply(new Matrix4().makeTranslation(planePosition.x, planePosition.y, planePosition.z))
@@ -142,7 +375,7 @@ export function Airplane({ orbitControlsRef, isUserInteracting, ...props }) {
     groupRef.current.matrix.copy(matrix);
     groupRef.current.matrixWorldNeedsUpdate = true;
 
-    // Calculate the smooth delayed rotation for the camera
+    // --- Camera update --- 
     const quaternionA = new Quaternion().copy(delayedQuaternion);
     const quaternionB = new Quaternion();
     quaternionB.setFromRotationMatrix(rotMatrix);
@@ -152,39 +385,26 @@ export function Airplane({ orbitControlsRef, isUserInteracting, ...props }) {
     delayedQuaternion.copy(interpolatedQuaternion);
     delayedRotMatrix.identity().makeRotationFromQuaternion(delayedQuaternion);
 
-    // Calculate the desired camera position based on the plane's delayed rotation
-    const idealOffset = new Vector3(0, 0.5, 2.0); // Base offset behind the plane
+    const idealOffset = new Vector3(0, 0.5, 2.0);
     idealOffset.applyMatrix4(delayedRotMatrix);
     idealOffset.add(planePosition);
 
     const idealLookAt = planePosition;
 
-    // Make interpolation smoother
-    const lerpFactor = 0.05; // Smaller value = smoother/slower interpolation
+    const lerpFactor = 0.05;
 
     if (!isUserInteracting) {
-      // Smoothly interpolate camera position and target towards the ideal ones
       cameraPosition.lerp(idealOffset, lerpFactor);
       cameraTarget.lerp(idealLookAt, lerpFactor);
-
-      // Apply the interpolated position and lookAt to the actual camera
       camera.position.copy(cameraPosition);
       camera.lookAt(cameraTarget);
-
-      // Sync OrbitControls target and update it
       orbitControlsRef.current.target.copy(cameraTarget);
-      // orbitControlsRef.current.update(); // update() is likely called by the R3F loop automatically
     } else {
-      // While user is interacting, update our internal state to match the controls
       cameraPosition.copy(orbitControlsRef.current.object.position);
       cameraTarget.copy(orbitControlsRef.current.target);
-      
-      // Keep the target focused on the plane, allowing OrbitControls to handle position/zoom
       orbitControlsRef.current.target.copy(idealLookAt);
-      // orbitControlsRef.current.update(); // update() is likely called by the R3F loop automatically
     }
 
-    // Rotate helix
     if (helixMeshRef.current) {
       helixMeshRef.current.rotation.z -= 1.0;
     }

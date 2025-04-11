@@ -15,7 +15,8 @@ function randomPoint(scale) {
 }
 
 const TARGET_RAD = 0.125;
-const TARGETS_PER_TILE = 10; // Reduced from 25 to 5 targets per tile for better performance
+const TARGETS_PER_TILE = 10; // Keep this per tile, but now there's only 1 tile
+const TARGET_MIN_HEIGHT = 2.2; // Ensure targets spawn above this height
 
 export function Targets() {
   const { incrementScore } = useScore();
@@ -51,30 +52,38 @@ export function Targets() {
   // Function to create targets distributed across the grid
   function createTargets(size) {
     const arr = [];
-    const halfGrid = Math.floor(GRID_SIZE / 2);
+    const halfGrid = Math.floor(GRID_SIZE / 2); // Now 0
     
-    // Loop through the same grid pattern as in Landscape.jsx
+    // Loop through the single grid cell (0, 0)
     for (let x = 0; x < GRID_SIZE; x++) {
       for (let z = 0; z < GRID_SIZE; z++) {
-        // Skip corners like in Landscape.jsx for consistency
-        if (SKIP_CORNERS && (x === 0 && z === 0 || x === 2 && z === 2 || 
-            x === 0 && z === 2 || x === 2 && z === 0)) {
-          continue;
-        }
+        // SKIP_CORNERS logic is irrelevant for GRID_SIZE = 1
+        // if (SKIP_CORNERS && (x === 0 && z === 0 || x === 2 && z === 2 || 
+        //     x === 0 && z === 2 || x === 2 && z === 0)) {
+        //   continue;
+        // }
         
-        // Calculate the tile offset using actual landscape size
+        // Calculate the tile offset (will be 0, 0 for the single tile)
         const tileOffsetX = (x - halfGrid) * size.x;
         const tileOffsetZ = (z - halfGrid) * size.z;
         
         // Create targets for this tile
         for (let i = 0; i < TARGETS_PER_TILE; i++) {
+          // Generate random position within tile bounds
+          const randomPos = randomPoint(new Vector3(4, 1, 4)); // Spread within tile
+          // Ensure minimum height
+          const targetY = TARGET_MIN_HEIGHT + Math.random() * 2; // Add some random variation above min height
+          
           arr.push({
-            center: randomPoint(new Vector3(4, 1, 4))
-              .add(new Vector3(tileOffsetX, 2 + Math.random() * 2, tileOffsetZ)),
+            center: new Vector3(
+              tileOffsetX + randomPos.x, 
+              targetY, 
+              tileOffsetZ + randomPos.z
+            ),
             direction: randomPoint().normalize(),
             hit: false,
-            id: `${x}-${z}-${i}`, // Include grid position in ID
-            gridPos: { x, z } // Track which grid this target belongs to
+            id: `${x}-${z}-${i}`, // Will be like 0-0-0, 0-0-1, ...
+            gridPos: { x, z } // Will be {0, 0}
           });
         }
       }
@@ -104,19 +113,24 @@ export function Targets() {
 
   useFrame(() => {
     let scoreNeedsUpdate = false;
+    let hitDetectedThisFrame = false; // Flag to ensure only one score increment per frame
+
     const newTargets = targets.map(target => {
-      if (target.hit) return target;
+      if (target.hit) return target; // Skip already hit targets
 
       const v = planePosition.clone().sub(target.center);
       const dist = target.direction.dot(v);
       const projected = planePosition
         .clone()
         .sub(target.direction.clone().multiplyScalar(dist));
-
       const hitDist = projected.distanceTo(target.center);
+
       if (hitDist < TARGET_RAD && Math.abs(dist) < 0.2) {
-        incrementScore();
-        scoreNeedsUpdate = true;
+        if (!hitDetectedThisFrame) {
+          incrementScore();
+          scoreNeedsUpdate = true;
+          hitDetectedThisFrame = true;
+        }
         return { ...target, hit: true };
       }
       return target;

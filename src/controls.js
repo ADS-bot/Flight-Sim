@@ -7,15 +7,58 @@ function easeOutQuad(x) {
 
 export let controls = {};
 export let resetScoreFunction = null;
+export let gameStateRef = { current: { isGameOver: false } }; // Reference to game state
+
+// Original values for resetting
+const INITIAL_PLANE_SPEED = 0.006;
+
+// Store velocities globally so they can be reset
+let maxVelocity = 0.04;
+let jawVelocity = 0;
+let pitchVelocity = 0;
+let turnVelocity = 0;
+let planeSpeed = INITIAL_PLANE_SPEED;
+export let turbo = 0;
 
 export function setResetScoreFunction(fn) {
   resetScoreFunction = fn;
 }
 
+// Set game state reference
+export function setGameStateRef(ref) {
+  gameStateRef = ref;
+}
+
+// Reset all control states
+export function resetControlStates() {
+  jawVelocity = 0;
+  pitchVelocity = 0;
+  turnVelocity = 0;
+  turbo = 0;
+  planeSpeed = INITIAL_PLANE_SPEED;
+  
+  // Also clear any key states to prevent stuck keys
+  Object.keys(controls).forEach(key => {
+    controls[key] = false;
+  });
+  
+  console.log("Control states reset");
+}
+
 window.addEventListener("keydown", (e) => {
+  // Ignore controls if game is over - except for R to reset
+  if (gameStateRef.current?.isGameOver && e.key.toLowerCase() !== 'r') {
+    return;
+  }
+  
   controls[e.key.toLowerCase()] = true;
-  if (e.key.toLowerCase() === 'r' && resetScoreFunction) {
-    resetScoreFunction();
+  
+  // Handle R key reset
+  if (e.key.toLowerCase() === 'r') {
+    if (resetScoreFunction) {
+      resetScoreFunction();
+    }
+    resetControlStates();
   }
 });
 
@@ -23,19 +66,17 @@ window.addEventListener("keyup", (e) => {
   controls[e.key.toLowerCase()] = false;
 });
 
-let maxVelocity = 0.04;
-let jawVelocity = 0;
-let pitchVelocity = 0;
-let turnVelocity = 0;
-let planeSpeed = 0.006;
-export let turbo = 0;
-
 // Export function to get current plane speed
 export function getPlaneSpeed() {
   return planeSpeed;
 }
 
 export function updatePlaneAxis(x, y, z, planePosition, camera) {
+  // Don't update if game is over
+  if (gameStateRef.current?.isGameOver) {
+    return;
+  }
+  
   jawVelocity *= 0.95;
   pitchVelocity *= 0.95;
   turnVelocity *= 0.95;
@@ -87,18 +128,11 @@ export function updatePlaneAxis(x, y, z, planePosition, camera) {
 
   // Reset controls (R)
   if (controls["r"]) {
-    jawVelocity = 0;
-    pitchVelocity = 0;
-    turnVelocity = 0;
-    turbo = 0;
-    planeSpeed = 0.006;
+    resetControlStates();
     x.set(1, 0, 0);
     y.set(0, 1, 0);
     z.set(0, 0, 1);
     planePosition.set(0, 3, 15);
-    if (resetScoreFunction) {
-        resetScoreFunction();
-    }
   }
 
   // Apply direct turning rotation

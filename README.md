@@ -46,10 +46,10 @@ A 3D airplane flying simulation built with React Three Fiber (R3F) and Three.js.
 
 ## Controls
 
-*   **W / S:** Pitch Up / Down
+*   **W / S:** Increase / Decrease Speed
 *   **A / D:** Yaw Left / Right
 *   **Left / Right Arrows:** Sharp Turn Left / Right
-*   **Up / Down Arrows:** Increase / Decrease Speed
+*   **Up / Down Arrows:** Pitch Up / Down
 *   **Shift:** Turbo Boost
 *   **R:** Reset Plane Position & Speed, Reset Score
 *   **Mouse Drag (Left Button):** Orbit camera around the plane (when camera is not auto-following)

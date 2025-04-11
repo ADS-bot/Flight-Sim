@@ -6,9 +6,10 @@ import { Landscape } from "./Landscape";
 import { SphereEnv } from "./SphereEnv";
 import { Airplane } from "./Airplane";
 import { Targets } from "./Targets";
-import { MotionBlur } from "./MotionBlur";
+// import { MotionBlur } from "./MotionBlur"; // MotionBlur remains disabled
 import { useScore } from "./contexts/ScoreContext";
 import { setResetScoreFunction } from "./controls";
+// import { CollisionEffect } from "./components/CollisionEffect"; // Removed
 
 function App() {
   const orbitControlsRef = useRef();
@@ -51,15 +52,16 @@ function App() {
       <Landscape />
       <Airplane orbitControlsRef={orbitControlsRef} isUserInteracting={isUserInteracting} />
       <Targets />
+      {/* <CollisionEffect /> Removed */}
 
-      {/* Optimized lighting for better performance */}
+      {/* Optimized lighting for better performance - Shadows restored */}
       <directionalLight
-        castShadow
+        castShadow // Ensure shadows are enabled
         color={"#f3d29a"}
         intensity={2}
         position={[10, 15, 10]}
         shadow-bias={-0.0005}
-        shadow-mapSize-width={512}  // Reduced for better performance
+        shadow-mapSize-width={512}  // Keep reduced map size
         shadow-mapSize-height={512}
         shadow-camera-near={0.01}
         shadow-camera-far={40}
@@ -73,7 +75,7 @@ function App() {
       <ambientLight intensity={0.3} color="#f3d29a" />
 
       <EffectComposer>
-        <MotionBlur />
+        {/* <MotionBlur /> */}
         <HueSaturation
           blendFunction={BlendFunction.NORMAL}
           hue={-0.15}

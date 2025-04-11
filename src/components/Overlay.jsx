@@ -1,6 +1,7 @@
 import React from 'react';
 import { useScore } from '../contexts/ScoreContext';
 import { useFlightData } from '../contexts/FlightDataContext';
+import { GameOverCard } from './GameOverCard';
 
 export function Overlay() {
   const { score } = useScore();
@@ -211,6 +212,9 @@ export function Overlay() {
           </li>
         </ul>
       </div>
+      
+      {/* Game Over Card */}
+      <GameOverCard />
     </div>
   );
 } 

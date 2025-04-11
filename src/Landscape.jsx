@@ -31,11 +31,11 @@ export function Landscape(props) {
         opacity={0.6}
         color={"#23281b"}
         roughness={0}
-        blur={[10, 10]}
+        blur={[20, 20]}
         mixBlur={1}
-        mixStrength={15}
+        mixStrength={10}
         mixContrast={1.2}
-        resolution={128} // Keep low resolution for performance
+        resolution={64}
         mirror={0}
         depthScale={0}
         minDepthThreshold={0}
@@ -91,7 +91,6 @@ export function Landscape(props) {
   const totalGridSize = useMemo(() => {
     if (!size || size.x === 0) return { width: 10, height: 10 };
     // Since grid is centered, total size is GRID_SIZE * tileSize
-    // (Adjust if corners are skipped and exact bounding box is needed, but this is simpler)
     return { width: GRID_SIZE * size.x, height: GRID_SIZE * size.z }; 
   }, [size]);
 
